@@ -68,7 +68,7 @@
     const role = localStorage.getItem("role");
 
     if (!username || !role) {
-      window.location.href = "login.html";
+      window.location.href = "index.html";
     }
 
     document.getElementById("userInfo").textContent = `Logged in as: ${username}`;
@@ -99,7 +99,7 @@
 
     function logout() {
       localStorage.clear();
-      window.location.href = "login.html";
+      window.location.href = "index.html";
     }
 
     function showAddItemForm() {
