@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Create Bill</title>
+  <style>
+    body { font-family: Arial; background: #f0f0f0; padding: 20px; }
+    .navbar { background: #161626; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+    .logout-btn { background: orange; color: white; border: none; padding: 8px 12px; cursor: pointer; border-radius: 5px; }
+    .item-row { background: white; margin-top: 10px; padding: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
+    .item-row input { width: 60px; }
+    .total { margin-top: 20px; font-size: 18px; }
+    .save-btn { margin-top: 10px; padding: 10px 20px; background: green; color: white; border: none; border-radius: 5px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <div class="navbar">
+    <div><b>ShopManager</b></div>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+
+  <h2>Create Bill</h2>
+  <div id="itemsContainer"></div>
+  <div class="total">Total: $<span id="totalAmount">0.00</span></div>
+  <button class="save-btn" onclick="saveBill()">✅ Confirm & Save Bill</button>
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBdm-R6d3nntIpXp3SnPs940WUkGC4vMAk",
+      authDomain: "inventory-20678.firebaseapp.com",
+      databaseURL: "https://console.firebase.google.com/u/0/project/inventory-20678/database/inventory-20678-default-rtdb/data",
+      projectId: "inventory-20678",
+      storageBucket: "inventory-20678.firebasestorage.app",
+      messagingSenderId: "350200719311",
+      appId: "1:350200719311:web:d4838e9c44f65219a9d4ba"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const user = localStorage.getItem("currentUser");
+    if (!user) location.href = "index.html";
+
+    const itemsContainer = document.getElementById("itemsContainer");
+    let itemList = [];
+
+    function loadItems() {
+      db.ref("items").once("value", snapshot => {
+        const data = snapshot.val();
+        if (data) {
+          Object.keys(data).forEach(id => {
+            const item = data[id];
+            const div = document.createElement("div");
+            div.className = "item-row";
+            div.innerHTML = `
+              <div><b>${item.name}</b> - $${item.price} (Stock: ${item.stock})</div>
+              <input type="number" min="0" max="${item.stock}" value="0" onchange="calculateTotal()" data-id="${id}" data-price="${item.price}">
+            `;
+            itemsContainer.appendChild(div);
+          });
+        }
+      });
+    }
+
+    function calculateTotal() {
+      let total = 0;
+      document.querySelectorAll("input[type='number']").forEach(input => {
+        const qty = parseInt(input.value) || 0;
+        const price = parseFloat(input.dataset.price);
+        total += qty * price;
+      });
+      document.getElementById("totalAmount").innerText = total.toFixed(2);
+    }
+
+    function saveBill() {
+      const selectedItems = [];
+      let total = 0;
+
+      document.querySelectorAll("input[type='number']").forEach(input => {
+        const qty = parseInt(input.value);
+        if (qty > 0) {
+          const id = input.dataset.id;
+          const price = parseFloat(input.dataset.price);
+          selectedItems.push({ id, quantity: qty, price });
+          total += qty * price;
+
+          // Update stock
+          db.ref("items/" + id + "/stock").once("value", snapshot => {
+            const currentStock = snapshot.val();
+            db.ref("items/" + id).update({ stock: currentStock - qty });
+          });
+        }
+      });
+
+      if (selectedItems.length === 0) {
+        alert("No items selected");
+        return;
+      }
+
+      const bill = {
+        user,
+        date: new Date().toISOString(),
+        items: selectedItems,
+        total
+      };
+
+      db.ref("bills").push(bill, () => {
+        alert("✅ Bill saved!");
+        location.href = "dashboard.html";
+      });
+    }
+
+    function logout() {
+      localStorage.removeItem("currentUser");
+      location.href = "index.html";
+    }
+
+    loadItems();
+  </script>
+</body>
+</html>

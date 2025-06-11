@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard | ShopManager</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 🔝 Navbar -->
+  <div class="navbar">
+    <span class="logo">ShopManager</span>
+    <span class="user-info" id="userInfo"></span>
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <!-- 👋 Welcome + Stats -->
+  <div class="container">
+    <h2>Welcome, <span id="userRole"></span></h2>
+    <div class="card-grid">
+      <div class="card">
+        <h3>Total Items</h3>
+        <p id="totalItems">0</p>
+      </div>
+      <div class="card">
+        <h3>Low Stock</h3>
+        <p id="lowStockCount">0</p>
+      </div>
+    </div>
+
+    <!-- 🛠 Admin Controls -->
+    <div id="adminSection" class="card" style="display:none;">
+      <h3>Admin Controls</h3>
+      <button onclick="showAddItemForm()">➕ Add Item</button>
+      <button onclick="loadItemsForEdit()">📝 Edit/Delete Items</button>
+      <div id="itemList"></div>
+    </div>
+
+    <!-- 👤 User Controls -->
+    <div id="userSection" class="card" style="display:none;">
+      <h3>User Controls</h3>
+      <button onclick="createBill()">🧾 Create Bill</button>
+    </div>
+
+    <!-- ➕ Add Item Form -->
+    <div id="addItemForm" class="card" style="display:none;">
+      <h4>Add New Item</h4>
+      <input type="text" id="itemName" placeholder="Item Name"><br>
+      <input type="number" id="itemQty" placeholder="Quantity"><br>
+      <input type="number" id="itemPrice" placeholder="Price"><br>
+      <input type="text" id="itemCategory" placeholder="Category"><br>
+      <button onclick="addItem()">Save Item</button>
+    </div>
+  </div>
+
+  <!-- 🔧 Script -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBdm-R6d3nntIpXp3SnPs940WUkGC4vMAk",
+      authDomain: "inventory-20678.firebaseapp.com",
+      projectId: "inventory-20678"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const username = localStorage.getItem("username");
+    const role = localStorage.getItem("role");
+
+    if (!username || !role) {
+      window.location.href = "login.html";
+    }
+
+    document.getElementById("userInfo").textContent = `Logged in as: ${username}`;
+    document.getElementById("userRole").textContent = role;
+
+    window.onload = function () {
+      if (role === "admin") {
+        document.getElementById("adminSection").style.display = "block";
+      } else {
+        document.getElementById("userSection").style.display = "block";
+      }
+
+      // Load item stats
+      db.collection("items").get().then((snapshot) => {
+        let total = 0;
+        let lowStock = 0;
+
+        snapshot.forEach(doc => {
+          const item = doc.data();
+          total++;
+          if (item.quantity <= 5) lowStock++;
+        });
+
+        document.getElementById("totalItems").textContent = total;
+        document.getElementById("lowStockCount").textContent = lowStock;
+      });
+    };
+
+    function logout() {
+      localStorage.clear();
+      window.location.href = "login.html";
+    }
+
+    function showAddItemForm() {
+      document.getElementById("addItemForm").style.display = "block";
+    }
+
+    function addItem() {
+      const name = document.getElementById("itemName").value.trim();
+      const quantity = parseInt(document.getElementById("itemQty").value);
+      const price = parseFloat(document.getElementById("itemPrice").value);
+      const category = document.getElementById("itemCategory").value.trim();
+
+      if (!name || isNaN(quantity) || isNaN(price) || !category) {
+        alert("Fill all fields properly.");
+        return;
+      }
+
+      db.collection("items").add({ name, quantity, price, category })
+        .then(() => {
+          alert("Item added successfully!");
+          document.getElementById("itemName").value = "";
+          document.getElementById("itemQty").value = "";
+          document.getElementById("itemPrice").value = "";
+          document.getElementById("itemCategory").value = "";
+        }).catch(err => {
+          console.error("Add error:", err);
+        });
+    }
+
+    function loadItemsForEdit() {
+      const listDiv = document.getElementById("itemList");
+      listDiv.innerHTML = "<h4>Items:</h4>";
+
+      db.collection("items").get().then(snapshot => {
+        snapshot.forEach(doc => {
+          const item = doc.data();
+          const div = document.createElement("div");
+          div.innerHTML = `
+            <strong>${item.name}</strong> - Qty: ${item.quantity}, Price: ${item.price}
+            <button onclick="deleteItem('${doc.id}')">❌</button>
+          `;
+          listDiv.appendChild(div);
+        });
+      });
+    }
+
+    function deleteItem(id) {
+      if (confirm("Delete this item?")) {
+        db.collection("items").doc(id).delete().then(() => {
+          alert("Item deleted.");
+          loadItemsForEdit();
+        });
+      }
+    }
+
+    function createBill() {
+      window.location.href = "billing.html";
+    }
+  </script>
+</body>
+</html>
